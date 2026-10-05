@@ -43,8 +43,8 @@ Filled in after `python train.py` (copy the printed numbers):
 
 | Model | Test R2 | MAE (pts) | RMSE (pts) |
 |---|---|---|---|
-| Random Forest | [ ] | [ ] | [ ] |
-| XGBoost | [ ] | [ ] | [ ] |
+| Random Forest | [0.735] | [5.3] | [7.8] |
+| XGBoost | [0.871] | [3.8] | [5.4] |
 
 ## Project structure
 ```
