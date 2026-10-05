@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Flotation optimizer</title>
+<style>
+:root{--bg:#eef2f1;--panel:#fff;--ink:#17262b;--mute:#5d6e72;--line:#d3dcda;--teal:#1f7a6d;--up:#1f7a6d;--down:#3b5bb5;--cu:#b4652a;--err:#b3261e}
+@media (prefers-color-scheme:dark){:root{--bg:#10191b;--panel:#172326;--ink:#e6eeec;--mute:#93a6a8;--line:#2a3b3e;--teal:#4fc1ae;--up:#4fc1ae;--down:#8fa8f0;--cu:#e39a62;--err:#ff8a80}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 "Segoe UI",system-ui,sans-serif}
+header{padding:20px 28px 4px}h1{margin:0;font-size:22px;font-weight:650}header p{margin:2px 0 0;color:var(--mute)}
+main{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:20px;padding:16px 28px 40px;align-items:start}
+@media(max-width:900px){main{grid-template-columns:1fr}}
+section{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:16px 18px}
+h2{font-size:15px;margin:0 0 10px}h3{font-size:13px;margin:16px 0 6px;color:var(--mute);font-weight:600}
+.models{display:flex;gap:8px}.models label{flex:1;border:1px solid var(--line);border-radius:6px;padding:8px 10px;cursor:pointer}
+.models input{margin-right:6px}.models label:has(input:checked){border-color:var(--teal);box-shadow:inset 0 0 0 1px var(--teal)}
+.models small{display:block;color:var(--mute)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px 14px}
+.f label{display:block;font-size:13px;margin-bottom:2px}.f .u{color:var(--mute)}
+.f input{width:100%;padding:7px 8px;border:1px solid var(--line);border-radius:5px;background:transparent;color:inherit;font:inherit}
+.f input:focus-visible,button:focus-visible{outline:2px solid var(--teal);outline-offset:1px}
+.f.bad input{border-color:var(--err)}.f .e{color:var(--err);font-size:12px;min-height:0}
+.f .hint{color:var(--mute);font-size:12px}
+.fixed{display:flex;flex-wrap:wrap;gap:8px;margin:0}.fixed div{border:1px dashed var(--line);border-radius:5px;padding:5px 9px;color:var(--mute)}
+.fixed b{color:var(--ink);font-weight:600}
+.bar{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap}
+button{font:inherit;padding:9px 16px;border-radius:6px;border:1px solid var(--teal);cursor:pointer;background:var(--teal);color:#fff}
+button.alt{background:transparent;color:var(--teal)}
+.big{font-size:54px;font-weight:700;color:var(--cu);line-height:1;font-variant-numeric:tabular-nums}
+.big small{font-size:22px;color:var(--mute);font-weight:500}
+.pm{color:var(--mute)}.cmp{margin-top:8px;color:var(--mute)}
+table{width:100%;border-collapse:collapse;margin-top:8px;font-variant-numeric:tabular-nums}
+th,td{text-align:left;padding:6px 6px;border-bottom:1px solid var(--line)}th{color:var(--mute);font-weight:600;font-size:13px}
+td.up{color:var(--up);font-weight:600}td.down{color:var(--down);font-weight:600}
+.note{margin-top:10px;padding:8px 10px;border-left:3px solid var(--cu);background:color-mix(in srgb,var(--cu) 10%,transparent)}
+.disc{margin-top:14px;font-size:13px;color:var(--mute);border-top:1px solid var(--line);padding-top:10px}
+.stat{font-weight:600;margin:10px 0 0}
+</style>
+</head>
+<body>
+<header><h1>Flotation optimizer</h1>
+<p>Predict recovery from process settings, then ask what to change to reach a target.</p></header>
+<main>
+<section id="left">
+  <h2>Model</h2><div class="models" id="models"></div>
+  <h3>Fixed parameters (not editable)</h3><div class="fixed" id="fixed"></div>
+  <div id="form"></div>
+  <h3>Target (optional)</h3>
+  <div class="grid">
+    <div class="f" id="f-target"><label>Target recovery <span class="u">%</span></label><input id="target" inputmode="decimal" placeholder="e.g. 90"><div class="e"></div></div>
+    <div class="f" id="f-max_change_pct"><label>Max change per variable <span class="u">%</span></label><input id="max_change_pct" value="25" inputmode="decimal"><div class="e"></div></div>
+  </div>
+  <div class="bar"><button id="btnP">Predict recovery</button><button id="btnO" class="alt">Suggest adjustments for target</button></div>
+</section>
+<section id="right"><h2>Result</h2><div id="out"><p class="pm">Enter process values and press Predict recovery.</p></div></section>
+</main>
+<script>
+const $=s=>document.querySelector(s); let META;
+const fmt=(v,d=1)=>Number(v).toFixed(d);
+async function init(){
+  META=await (await fetch('/api/meta')).json();
+  $('#models').innerHTML=Object.entries(META.models).map(([id,name],i)=>{
+    const m=META.metrics[id];
+    return `<label><input type="radio" name="algo" value="${id}" ${i==0?'checked':''}>${name}<small>test R² ${fmt(m.r2,3)} · MAE ${fmt(m.mae,2)} pts</small></label>`}).join('');
+  $('#fixed').innerHTML=Object.entries(META.fixed_params).map(([k,v])=>`<div>${k}: <b>${v}</b></div>`).join('');
+  const groups={}; META.features.forEach(f=>(groups[f.group]??=[]).push(f));
+  $('#form').innerHTML=Object.entries(groups).map(([g,fs])=>`<h3>${g}</h3><div class="grid">`+fs.map(f=>{
+    const note=!f.in_model&&!f.derived?'<div class="hint">Not in training data: recorded, not used by the models</div>':(f.derived?'<div class="hint">Linked to chalcopyrite grade</div>':'');
+    return `<div class="f" id="f-${f.key}"><label>${f.label} <span class="u">${f.unit}</span></label><input id="${f.key}" inputmode="decimal" value="${fmt(f.median,f.dec)}">
+    <div class="hint">Range ${fmt(f.min,f.dec)} – ${fmt(f.max,f.dec)}${f.adjustable?'':' · held fixed in suggestions'}</div>${note}<div class="e"></div></div>`}).join('')+'</div>').join('');
+  const k=META.cu_per_chalco, cu=$('#Cu_Feed_Grade_pct'), ch=$('#Chalcopyrite_Grade_pct');
+  ch.addEventListener('input',()=>cu.value=(parseFloat(ch.value)*k||0).toFixed(3));
+  cu.addEventListener('input',()=>ch.value=(parseFloat(cu.value)/k||0).toFixed(3));
+  cu.value=(parseFloat(ch.value)*k).toFixed(3);
+  $('#btnP').onclick=()=>run(false); $('#btnO').onclick=()=>run(true);
+}
+async function run(withTarget){
+  document.querySelectorAll('.f').forEach(e=>{e.classList.remove('bad');e.querySelector('.e').textContent=''});
+  const inputs={}; META.features.forEach(f=>inputs[f.key]=$('#'+f.key).value);
+  const t=$('#target').value;
+  if(withTarget&&!t){return showErr({target:'Enter a target recovery first.'})}
+  const body={algo:document.querySelector('[name=algo]:checked').value,inputs,target:withTarget?t:null,max_change_pct:$('#max_change_pct').value};
+  const r=await fetch('/api/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const d=await r.json();
+  if(r.status==422) return showErr(d.errors);
+  render(d);
+}
+function showErr(errs){
+  let first=true;
+  for(const [k,m] of Object.entries(errs)){const el=$('#f-'+k); if(!el) continue; el.classList.add('bad'); el.querySelector('.e').textContent=m; if(first){el.scrollIntoView({block:'center'});first=false}}
+  $('#out').innerHTML='<p class="pm">Fix the highlighted fields and try again.</p>';
+}
+function render(d){
+  const name=META.models[d.algo];
+  let h=`<div class="big">${fmt(d.prediction)}<small> %</small></div><div class="pm">Predicted copper recovery · ${name} · typical error ±${fmt(d.band)} points</div>`;
+  h+=`<div class="cmp">${Object.entries(d.comparison).map(([id,v])=>`${META.models[id]}: <b>${fmt(v)} %</b>`).join(' &nbsp;|&nbsp; ')}</div>`;
+  d.warnings.forEach(w=>h+=`<div class="note">${w}</div>`);
+  const o=d.optimization;
+  if(o){
+    const msg={already_meets:'The target is already met by the prediction. No change needed.',reached:`Target of ${fmt(o.target)} % can be reached with the changes below.`,closest_feasible:`Target of ${fmt(o.target)} % is not reachable within the limits. Closest feasible result below.`}[o.status];
+    h+=`<div class="stat">${msg}</div>`;
+    if(o.changes.length){
+      h+=`<table><tr><th>Variable</th><th>Now</th><th>Suggested</th><th>Change</th></tr>`+o.changes.map(c=>{
+        const up=c.direction=='increase',u=c.unit?' '+c.unit:'';
+        return `<tr><td>${c.label}</td><td>${c.current}${u}</td><td>${c.suggested}${u}</td><td class="${up?'up':'down'}">${up?'▲ Increase':'▼ Decrease'} ${Math.abs(c.delta)}${u} (${c.pct>0?'+':''}${c.pct} %)</td></tr>`}).join('')+'</table>';
+      h+=`<p>Predicted recovery after changes: <b>${fmt(o.achieved)} %</b> (from ${fmt(o.current)} %)</p>`;
+    }
+    o.notes.forEach(n=>h+=`<div class="note">${n}</div>`);
+  }
+  h+=`<div class="disc"><b>Please note:</b> suggestions are model-based approximations learned from historical data. They are not guarantees. Test any change carefully at the plant and apply operator judgement.</div>`;
+  $('#out').innerHTML=h;
+}
+init();
+</script>
+</body>
+</html>
