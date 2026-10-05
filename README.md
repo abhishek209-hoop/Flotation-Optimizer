@@ -5,7 +5,8 @@ Predict copper recovery from flotation process settings with **XGBoost** or **Ra
 
 > Suggestions are approximations learned from historical data. They are not guarantees. See [PROBLEM_STATEMENT.md](PROBLEM_STATEMENT.md).
 
-![App screenshot](docs/app_screenshot.png)
+![App screenshot]([docs/app_screenshot.png](https://1drv.ms/i/c/1b580748fa8bcff0/IQA3ytxG-OiWTI1rxqGE3TplAcDDigYlWch1jaxuqGHp-mI?e=CCSQ5h)
+(https://1drv.ms/i/c/1b580748fa8bcff0/IQBqKN0MGDZWTqxPwYlItxdOATuQE6m3vDTKJvAPWO-ad5M?e=XhvWh0))
 <!-- Add a screenshot of the running app at docs/app_screenshot.png -->
 
 ## Features
