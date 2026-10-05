@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Flotation Optimizer
 
 Predict copper recovery from flotation process settings with **XGBoost** or **Random Forest**, then get model-based suggestions for which variables to increase or decrease to reach a target recovery. Runs locally with FastAPI.
@@ -78,3 +79,6 @@ MIT. See [LICENSE](LICENSE).
 
 ## Author
 Saranga Abhishek, IIT (ISM) Dhanbad. GitHub: [abhishek209-hoop](https://github.com/abhishek209-hoop)
+=======
+# Flotation-Optimizer
+>>>>>>> 63fd62ae83ce8ba41f13a4eac9cbac2bf0a2a172
