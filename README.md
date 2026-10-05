@@ -39,7 +39,7 @@ Run the checks with `pytest -q` (model tests run after training).
 4. **Optimize:** the trained model is a surrogate. Differential evolution (gradient-free, suits tree models) finds the best reachable recovery inside bounded steps, then the smallest change that reaches the target, then prunes small moves.
 
 ## Results
-Filled in after `python train.py` (copy the printed numbers):
+Filled in after `python train.py` :
 
 | Model | Test R2 | MAE (pts) | RMSE (pts) |
 |---|---|---|---|
